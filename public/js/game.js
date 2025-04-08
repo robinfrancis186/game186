@@ -1,6 +1,11 @@
 class Game {
     constructor() {
-        this.socket = io();
+        // Use production server URL when deployed
+        const serverUrl = window.location.hostname === 'localhost' 
+            ? 'http://localhost:3000'
+            : 'https://[your-server-url]'; // Replace with your deployed server URL
+        
+        this.socket = io(serverUrl);
         this.canvas = document.getElementById('gameCanvas');
         this.ctx = this.canvas.getContext('2d');
         this.keys = {};
@@ -42,6 +47,36 @@ class Game {
         this.bulletSpeed = 15;
         this.maxBulletTrails = 50;
         
+        this.weaponTypes = {
+            'ak47': { name: 'AK 47', fireRate: 600, damage: 25, ammoCapacity: 30 },
+            'glock': { name: 'Glock - P80', fireRate: 400, damage: 15, ammoCapacity: 15 },
+            'revolver': { name: 'Revolver - Colt 45', fireRate: 150, damage: 45, ammoCapacity: 6 }
+        };
+        
+        this.weaponSprites = {
+            'ak47': null,
+            'glock': null,
+            'revolver': null,
+            'bullet': null,
+            'muzzleFlash': null
+        };
+        
+        this.weaponStates = {
+            'ak47': { frame: 0, shootFrame: 0, muzzleFlashTime: 0 },
+            'glock': { frame: 0, shootFrame: 0, muzzleFlashTime: 0 },
+            'revolver': { frame: 0, shootFrame: 0, muzzleFlashTime: 0 }
+        };
+        this.muzzleFlashDuration = 50; // milliseconds
+        this.weaponAnimationSpeeds = {
+            'ak47': { idle: 4, shooting: 12 },
+            'glock': { idle: 3, shooting: 8 },
+            'revolver': { idle: 2, shooting: 6 }
+        };
+        
+        this.currentWeapon = 'ak47';
+        this.weaponFrame = 0;
+        this.weaponAnimationTime = 0;
+        
         this.setupEventListeners();
         this.setupSocketListeners();
         this.loadAssets();
@@ -49,51 +84,32 @@ class Game {
     }
 
     loadAssets() {
-        // Initialize weapon sprites with default values
-        this.weaponSprites = {
-            ak47: null,
-            glock: null,
-            revolver: null,
-            shotgun: null
-        };
-
-        // Create a promise for each asset
-        const loadPromises = Object.keys(this.weaponSprites).map(weapon => {
+        const loadImage = (name, path) => {
             return new Promise((resolve, reject) => {
                 const img = new Image();
                 img.onload = () => {
-                    console.log(`Loaded ${weapon} sprite`);
-                    this.weaponSprites[weapon] = img;
+                    this.weaponSprites[name] = img;
                     resolve();
                 };
                 img.onerror = () => {
-                    console.warn(`Failed to load ${weapon} sprite, using default`);
-                    // Create a default colored rectangle for missing sprites
-                    const canvas = document.createElement('canvas');
-                    canvas.width = 40;
-                    canvas.height = 40;
-                    const ctx = canvas.getContext('2d');
-                    ctx.fillStyle = '#ff0000';
-                    ctx.fillRect(0, 0, 40, 40);
-                    this.weaponSprites[weapon] = canvas;
-                    resolve();
+                    console.error(`Failed to load ${name} sprite`);
+                    reject();
                 };
-                img.src = `/assets/weapons/${weapon}.png`;
+                img.src = path;
             });
-        });
+        };
 
-        // Wait for all assets to load or fail
-        Promise.all(loadPromises)
-            .then(() => {
-                console.log('All assets loaded or defaulted');
-                this.loading = false;
-                document.getElementById('loadingOverlay').classList.add('hidden');
-            })
-            .catch(error => {
-                console.error('Error loading assets:', error);
-                this.loading = false;
-                document.getElementById('loadingOverlay').classList.add('hidden');
-            });
+        return Promise.all([
+            loadImage('ak47', '/assets/weapons/ak47.png'),
+            loadImage('glock', '/assets/weapons/glock.png'),
+            loadImage('revolver', '/assets/weapons/revolver.png'),
+            loadImage('bullet', '/assets/weapons/bullet.png'),
+            loadImage('muzzleFlash', '/assets/weapons/muzzle_flash.png')
+        ]).catch(error => {
+            console.error('Error loading weapon sprites:', error);
+            // Fallback to basic shapes if sprites fail to load
+            this.weaponSprites = null;
+        });
     }
 
     setupEventListeners() {
@@ -107,6 +123,16 @@ class Game {
         
         // Prevent context menu on right click
         this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key >= '1' && e.key <= '3') {
+                const weapons = ['ak47', 'glock', 'revolver'];
+                const weaponIndex = parseInt(e.key) - 1;
+                if (weapons[weaponIndex]) {
+                    this.switchWeapon(weapons[weaponIndex]);
+                }
+            }
+        });
     }
 
     setupSocketListeners() {
@@ -249,6 +275,25 @@ class Game {
         
         // Update effects
         this.updateEffects();
+        
+        // Update weapon animations
+        const now = Date.now();
+        const delta = (now - this.weaponAnimationTime) / 1000;
+        this.weaponAnimationTime = now;
+
+        Object.keys(this.weaponStates).forEach(weapon => {
+            const state = this.weaponStates[weapon];
+            const speeds = this.weaponAnimationSpeeds[weapon];
+            
+            if (this.player && this.player.currentWeapon === weapon && this.player.isShooting) {
+                state.frame += delta * speeds.shooting;
+                state.shootFrame = (state.shootFrame + delta * speeds.shooting) % 4;
+                state.muzzleFlashTime = now;
+            } else {
+                state.frame += delta * speeds.idle;
+                state.shootFrame = 0;
+            }
+        });
     }
 
     updatePlayerMovement() {
@@ -438,20 +483,61 @@ class Game {
 
     drawPlayers() {
         Object.values(this.gameState.players).forEach(player => {
-            // Draw player body
             this.ctx.save();
             this.ctx.translate(player.x, player.y);
             this.ctx.rotate(player.angle);
             
-            // Draw team color
-            this.ctx.fillStyle = player.team === 'red' ? '#ff0000' : '#0000ff';
+            // Draw player body
+            this.ctx.fillStyle = player.team === 'red' ? this.colors.red.primary : this.colors.blue.primary;
             this.ctx.fillRect(-20, -20, 40, 40);
             
-            // Draw health bar
+            // Draw weapon sprite if available
+            if (this.weaponSprites && this.weaponSprites[player.currentWeapon]) {
+                const weapon = this.weaponSprites[player.currentWeapon];
+                const state = this.weaponStates[player.currentWeapon];
+                const scale = 0.5;
+                
+                const weaponX = 20;
+                const weaponY = 0;
+                
+                const frameWidth = weapon.width / 4;
+                const frameHeight = weapon.height;
+                const frame = Math.floor(state.shootFrame || state.frame) % 4;
+                
+                // Add slight recoil effect when shooting
+                if (player.isShooting) {
+                    this.ctx.translate(-2 * Math.random(), -1 * Math.random());
+                }
+                
+                this.ctx.drawImage(
+                    weapon,
+                    frame * frameWidth, 0, frameWidth, frameHeight,
+                    weaponX, weaponY - frameHeight * scale / 2,
+                    frameWidth * scale, frameHeight * scale
+                );
+                
+                // Draw muzzle flash with fade out
+                if (this.weaponSprites.muzzleFlash && 
+                    Date.now() - state.muzzleFlashTime < this.muzzleFlashDuration) {
+                    const flash = this.weaponSprites.muzzleFlash;
+                    const flashAlpha = 1 - ((Date.now() - state.muzzleFlashTime) / this.muzzleFlashDuration);
+                    
+                    this.ctx.globalAlpha = flashAlpha;
+                    this.ctx.drawImage(
+                        flash,
+                        weaponX + frameWidth * scale, 
+                        weaponY - flash.height * scale / 2,
+                        flash.width * scale, 
+                        flash.height * scale
+                    );
+                    this.ctx.globalAlpha = 1;
+                }
+            }
+            
+            // Draw health bar and other effects
             this.ctx.fillStyle = '#00ff00';
             this.ctx.fillRect(-20, -30, 40 * (player.health / 100), 5);
             
-            // Draw power-up effects
             if (player.powerUps.shield) {
                 this.ctx.strokeStyle = '#00ffff';
                 this.ctx.lineWidth = 3;
@@ -465,6 +551,19 @@ class Game {
             this.ctx.font = '12px Arial';
             this.ctx.textAlign = 'center';
             this.ctx.fillText(`${player.name} (${player.score})`, player.x, player.y - 40);
+
+            // Draw weapon info
+            if (player === this.player) {
+                const weapon = this.weaponTypes[player.currentWeapon];
+                this.ctx.fillStyle = '#ffffff';
+                this.ctx.font = '14px Arial';
+                this.ctx.textAlign = 'left';
+                this.ctx.fillText(
+                    `${player.currentWeapon.toUpperCase()} - Ammo: ${player.ammo}/${weapon.maxAmmo}`,
+                    20, 
+                    this.canvas.height - 20
+                );
+            }
         });
     }
 
@@ -571,6 +670,13 @@ class Game {
         this.update();
         this.draw();
         requestAnimationFrame(() => this.gameLoop());
+    }
+
+    switchWeapon(newWeapon) {
+        if (this.player && this.weaponTypes[newWeapon]) {
+            this.player.currentWeapon = newWeapon;
+            this.socket.emit('switchWeapon', { weapon: newWeapon });
+        }
     }
 }
 
