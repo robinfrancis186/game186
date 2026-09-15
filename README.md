@@ -50,7 +50,9 @@ npm run build
 
 ## Deployment
 
-GitHub Actions builds and publishes static client assets to GitHub Pages using the Pages artifact deployment API. Multiplayer still requires a separately hosted Node.js/Socket.IO server; GitHub Pages does not run that server. Use the local instructions above for a complete client/server demo.
+GitHub Actions builds and publishes static client assets to GitHub Pages using the Pages artifact deployment API. Multiplayer still requires a separately hosted Node.js/Socket.IO server; GitHub Pages does not run that server. Use the local instructions above to run the client and server together on `localhost:3000`.
+
+The hosted client is not a playable online demo: the production server URL remains a placeholder in `public/js/game.js`, and `/socket.io/socket.io.js` must be served by the Node.js backend. Weapon sprite files are absent; the code falls back to basic shapes. No hosted-server or asset-completeness claim is made.
 
 ## Game Controls
 
