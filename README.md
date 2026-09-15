@@ -50,7 +50,7 @@ npm run build
 
 ## Deployment
 
-The game is automatically deployed to GitHub Pages when changes are pushed to the main branch.
+The existing GitHub Pages workflow attempts to publish static client assets. Its September 2026 run failed because the Actions token could not push the `gh-pages` branch. Even with publishing configured, multiplayer requires a separately hosted Node.js/Socket.IO server; use the local instructions above.
 
 ## Game Controls
 
@@ -60,9 +60,6 @@ The game is automatically deployed to GitHub Pages when changes are pushed to th
 - Collect power-ups by walking over them
 - Capture flags by touching them and returning to your base
 
-## License
-
-ISC
 ## Licensing
 
-No repository-wide LICENSE file is included. No new license is granted by this documentation; third-party terms remain in force.
+`package.json` declares ISC, but no repository-wide LICENSE text is included. This documentation does not replace or expand that declaration. Confirm the applicable terms with the maintainer; third-party terms remain in force.
