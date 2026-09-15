@@ -13,7 +13,7 @@ A real-time multiplayer battle game where players can fight in teams or free-for
 
 ## Play Online
 
-You can play the game online at: `https://[your-github-username].github.io/halo-2d/`
+No verified hosted multiplayer demo is linked here. Run the Node.js server locally using the instructions below; static GitHub Pages hosting alone cannot run the Socket.IO server.
 
 ## Development
 
@@ -26,8 +26,8 @@ You can play the game online at: `https://[your-github-username].github.io/halo-
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/[your-github-username]/halo-2d.git
-cd halo-2d
+git clone https://github.com/robinfrancis186/game186.git
+cd game186
 ```
 
 2. Install dependencies:
@@ -62,4 +62,7 @@ The game is automatically deployed to GitHub Pages when changes are pushed to th
 
 ## License
 
-ISC 
+ISC
+## Licensing
+
+No repository-wide LICENSE file is included. No new license is granted by this documentation; third-party terms remain in force.
