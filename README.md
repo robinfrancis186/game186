@@ -50,7 +50,7 @@ npm run build
 
 ## Deployment
 
-The existing GitHub Pages workflow attempts to publish static client assets. Its September 2026 run failed because the Actions token could not push the `gh-pages` branch. Even with publishing configured, multiplayer requires a separately hosted Node.js/Socket.IO server; use the local instructions above.
+GitHub Actions builds and publishes static client assets to GitHub Pages using the Pages artifact deployment API. Multiplayer still requires a separately hosted Node.js/Socket.IO server; GitHub Pages does not run that server. Use the local instructions above for a complete client/server demo.
 
 ## Game Controls
 
